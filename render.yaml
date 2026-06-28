@@ -1,0 +1,12 @@
+# Render.com blueprint — auto-configures the web service.
+# Render isko dekh ke khud sab set kar dega.
+services:
+  - type: web
+    name: tradelens
+    runtime: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn server:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
