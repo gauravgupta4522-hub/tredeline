@@ -55,9 +55,9 @@
   .stat .k{font-size:11px;color:var(--mut)} .stat .v{font-size:17px;font-weight:800;margin-top:3px}
   .nav{position:fixed;bottom:0;left:0;right:0;z-index:30;background:#0e1729;border-top:1px solid var(--line);
     display:flex;justify-content:space-around;padding:8px 4px calc(env(safe-area-inset-bottom) + 8px)}
-  .nav a{flex:1;text-align:center;color:var(--mut);font-size:11px;text-decoration:none;padding:4px 0;font-weight:600}
+  .nav a{flex:1;text-align:center;color:var(--mut);font-size:9.5px;text-decoration:none;padding:4px 0;font-weight:600}
   .nav a.active{color:var(--acc)}
-  .nav a .ic{display:block;font-size:20px;margin-bottom:2px}
+  .nav a .ic{display:block;font-size:18px;margin-bottom:2px}
   .list-item{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)}
   .list-item:last-child{border:none}
   .tag{font-size:11px;padding:3px 8px;border-radius:8px;font-weight:700}
@@ -89,6 +89,19 @@
 
   <!-- ============ SIGNALS ============ -->
   <section class="screen active" id="s-signals">
+
+    <div class="card" style="border-color:#22c55e">
+      <h3 style="color:#4ade80">⭐ PRO Strategy (trend + stop-loss)</h3>
+      <div class="mut" style="margin-bottom:10px">Achhe traders ka tarika: trend ke saath chalo,
+        har trade me stop-loss, winners ko chalne do. <b>100% win nahi</b> — par risk control + profit factor pe focus.</div>
+      <div class="row">
+        <div><label>Symbol</label><select id="proSymbol"></select></div>
+        <div style="display:flex;align-items:flex-end"><button class="grn" onclick="loadPro()">Run PRO (5y)</button></div>
+      </div>
+      <div id="proResult"></div>
+      <div id="proLoader"></div>
+    </div>
+
     <div class="card">
       <h3>Pick market & strategy</h3>
       <div class="row">
@@ -181,6 +194,40 @@
     </div>
   </section>
 
+  <!-- ============ ASTRO ============ -->
+  <section class="screen" id="s-astro">
+    <div class="card" style="border-color:#a855f7">
+      <h3 style="color:#c084fc">🔮 Astro Trading — honest mode</h3>
+      <div class="disclaimer" style="border-color:#a855f7">
+        ⚠️ <b>Imaandaar warning:</b> Grah-nakshatra se market predict hone ka koi
+        scientific proof nahi hai. Yeh feature isliye hai taaki aap <b>khud backtest me dekh sako</b>
+        ki ye claims real data pe chale ya nahi. Niche aksar dikhega ki ye Buy&Hold se
+        <b>peeche</b> rehte hain. Iske bharose paise mat lagana.
+      </div>
+    </div>
+
+    <div class="card" id="astroToday">
+      <h3>Aaj ka astro</h3>
+      <div class="grid2" id="astroTodayBox"><div class="mut">loading…</div></div>
+    </div>
+
+    <div class="card">
+      <h3>Astro strategy backtest</h3>
+      <div class="row">
+        <div><label>Symbol</label><select id="asSymbol"></select></div>
+        <div><label>Astro strategy</label><select id="asStrategy"></select></div>
+      </div>
+      <button style="margin-top:12px" onclick="loadAstro()">Run Astro Backtest (5y)</button>
+      <div id="asResult"></div>
+      <div id="asLoader"></div>
+    </div>
+
+    <div class="card">
+      <h3>Upcoming events</h3>
+      <div id="astroEvents"><div class="mut">loading…</div></div>
+    </div>
+  </section>
+
   <!-- ============ PAPER TRADING ============ -->
   <section class="screen" id="s-paper">
     <div class="card">
@@ -267,6 +314,7 @@
   <a href="#" class="active" data-screen="s-signals"><span class="ic">📍</span>Signals</a>
   <a href="#" data-screen="s-intraday"><span class="ic">⚡</span>Intraday</a>
   <a href="#" data-screen="s-greeks"><span class="ic">🎯</span>Greeks</a>
+  <a href="#" data-screen="s-astro"><span class="ic">🔮</span>Astro</a>
   <a href="#" data-screen="s-paper"><span class="ic">📝</span>Paper</a>
   <a href="#" data-screen="s-more"><span class="ic">⋯</span>More</a>
 </nav>

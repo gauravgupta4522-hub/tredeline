@@ -61,24 +61,101 @@ const FALLBACK_SYMBOLS = ['Nifty 50', 'Sensex', 'Bank Nifty', 'Gold (USD)', 'Bit
 const FALLBACK_DAILY = ['EMA Crossover (20/50)', 'RSI Mean-Reversion', 'MACD Trend',
   'Donchian Breakout (20)', 'Combined (Trend+Momentum+RSI)'];
 const FALLBACK_INTRA = ['VWAP Momentum', 'Opening Range Breakout', 'Supertrend (10,3)', 'RSI Scalper (7)'];
+const FALLBACK_ASTRO = ['Lunar Cycle (long waxing)', 'Lunar Cycle (long/short)', 'Mercury Retrograde (avoid)', 'Lunar + Mercury Combined'];
 
 function fillSelect(el, items, sel) {
   el.innerHTML = items.map(x => `<option ${x === sel ? 'selected' : ''}>${x}</option>`).join('');
 }
 
 async function boot() {
-  let symbols = FALLBACK_SYMBOLS, daily = FALLBACK_DAILY, intra = FALLBACK_INTRA;
+  let symbols = FALLBACK_SYMBOLS, daily = FALLBACK_DAILY, intra = FALLBACK_INTRA, astro = FALLBACK_ASTRO;
   try {
     const s = await api('/api/symbols'); symbols = s.symbols;
-    const st = await api('/api/strategies'); daily = st.daily; intra = st.intraday;
+    const st = await api('/api/strategies'); daily = st.daily; intra = st.intraday; astro = st.astro || FALLBACK_ASTRO;
     ONLINE = true; $('netpill').textContent = 'online ✓';
   } catch (e) {
     ONLINE = false; $('netpill').textContent = 'offline mode';
   }
-  ['sigSymbol', 'inSymbol', 'paSymbol', 'alSymbol'].forEach(id => fillSelect($(id), symbols, symbols[0]));
+  ['sigSymbol', 'inSymbol', 'paSymbol', 'alSymbol', 'asSymbol', 'proSymbol'].forEach(id => { if ($(id)) fillSelect($(id), symbols, symbols[0]); });
   fillSelect($('sigStrategy'), daily, daily[daily.length - 1]);
   fillSelect($('inStrategy'), intra, intra[0]);
+  if ($('asStrategy')) fillSelect($('asStrategy'), astro, astro[0]);
   renderPaper(); renderWatch(); renderAlerts();
+  if (ONLINE) loadAstroToday();
+}
+
+/* ---------------- PRO strategy ---------------- */
+async function loadPro() {
+  if (!ONLINE) return toast('PRO strategy needs the server online.');
+  $('proLoader').innerHTML = '<div class="loader"></div>'; $('proResult').innerHTML = '';
+  try {
+    const symbol = $('proSymbol').value;
+    const d = await api(`/api/pro?symbol=${encodeURIComponent(symbol)}&period=5y`);
+    const m = d.metrics;
+    const stat = (k, v) => `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`;
+    const beat = m['Net Return %'] >= m['Buy & Hold %'];
+    const pf = m['Profit Factor'];
+    const verdict = beat
+      ? `<div class="disclaimer" style="border-color:#22c55e;margin-top:10px">✅ Is period me PRO ne Buy&Hold ko beat kiya. Phir bhi: alag market me result alag ho sakta hai. Pehle Paper tab me test karo.</div>`
+      : `<div class="disclaimer" style="border-color:#f59e0b;margin-top:10px">⚠️ Net ${m['Net Return %']}% — Buy&Hold (${m['Buy & Hold %']}%) se kam, PAR Profit Factor <b>${pf}</b> (jeet ka paisa haar se ${pf}x zyada) aur drawdown chhota. Yeh "kam jeet, badi jeet" wala trend-following hai. 100% win koi strategy nahi deti.</div>`;
+    $('proResult').innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">
+        <div class="mut">${symbol} · 5 saal · stop-loss ON</div>
+        <div class="signal-badge ${badgeClass(d.action)}">${d.action}</div>
+      </div>
+      <div class="grid3" style="margin-top:10px">
+        ${stat('Net %', m['Net Return %'])}${stat('Buy&Hold %', m['Buy & Hold %'])}${stat('CAGR %', m['CAGR %'])}
+        ${stat('Win %', m['Win Rate %'])}${stat('Profit Factor', pf)}${stat('MaxDD %', m['Max Drawdown %'])}
+        ${stat('Trades', m['Total Trades'])}${stat('Avg Win %', m['Avg Win %'])}${stat('Avg Loss %', m['Avg Loss %'])}
+      </div>
+      ${verdict}
+      ${tradeTable(d.trades)}`;
+  } catch (e) { $('proResult').innerHTML = `<div class="empty">Error: ${e.message}</div>`; }
+  $('proLoader').innerHTML = '';
+}
+
+/* ---------------- astro ---------------- */
+async function loadAstroToday() {
+  try {
+    const d = await api('/api/astro/today');
+    const t = d.today;
+    $('astroTodayBox').innerHTML = `
+      <div class="stat"><div class="k">Moon illumination</div><div class="v">${t.moon_illumination_pct}%</div></div>
+      <div class="stat"><div class="k">Moon age</div><div class="v">${t.moon_age_days}d</div></div>
+      <div class="stat" style="grid-column:1/3"><div class="k">Phase</div><div class="v" style="font-size:14px">${t.phase}</div></div>
+      <div class="stat" style="grid-column:1/3"><div class="k">Mercury</div><div class="v" style="font-size:14px">${t.mercury_retrograde ? '☿ Retrograde (caution)' : '☿ Direct (normal)'}</div></div>`;
+    $('astroEvents').innerHTML = d.events.map(e => `<div class="list-item">
+      <div><b>${e.event}</b><div class="mut" style="font-size:11px">${e.note}</div></div>
+      <div class="mut">${e.date}</div></div>`).join('');
+  } catch (e) {
+    $('astroTodayBox').innerHTML = '<div class="mut">Need server online.</div>';
+  }
+}
+
+async function loadAstro() {
+  if (!ONLINE) return toast('Astro backtest needs the server online.');
+  $('asLoader').innerHTML = '<div class="loader"></div>'; $('asResult').innerHTML = '';
+  try {
+    const symbol = $('asSymbol').value, strategy = $('asStrategy').value;
+    const d = await api(`/api/astro?symbol=${encodeURIComponent(symbol)}&strategy=${encodeURIComponent(strategy)}&period=5y`);
+    const m = d.metrics;
+    const stat = (k, v) => `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`;
+    const beat = m['Net Return %'] >= m['Buy & Hold %'];
+    const verdict = beat
+      ? `<div class="disclaimer" style="border-color:#22c55e;margin-top:10px">Is sample me astro strategy ne Buy&Hold ko beat kiya. Lekin yeh sabse zyada coincidence ho sakta hai — alag period/asset pe test karo, andha bharosa mat karo.</div>`
+      : `<div class="disclaimer" style="border-color:#ef4444;margin-top:10px">❌ Yeh astro strategy Buy&Hold (${m['Buy & Hold %']}%) se <b>peeche</b> rahi. Matlab is data pe iska koi reliable edge nahi mila. Iske bharose paise mat lagao.</div>`;
+    $('asResult').innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">
+        <div class="mut">${symbol} · 5 saal</div>
+        <div class="signal-badge ${badgeClass(d.action)}">${d.action}</div>
+      </div>
+      <div class="grid3" style="margin-top:10px">
+        ${stat('Astro Net %', m['Net Return %'])}${stat('Buy&Hold %', m['Buy & Hold %'])}${stat('CAGR %', m['CAGR %'])}
+        ${stat('Sharpe', m['Sharpe (ann.)'])}${stat('MaxDD %', m['Max Drawdown %'])}${stat('Win %', m['Win Rate %'])}
+      </div>
+      ${verdict}`;
+  } catch (e) { $('asResult').innerHTML = `<div class="empty">Error: ${e.message}</div>`; }
+  $('asLoader').innerHTML = '';
 }
 
 /* ---------------- signals ---------------- */
