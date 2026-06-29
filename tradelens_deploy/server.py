@@ -28,6 +28,8 @@ import data
 import strategies
 import backtest
 import intraday
+import astro
+import pro_strategy
 from greeks import compute_greeks, implied_vol
 from angel_broker import AngelConfig, AngelBroker
 
@@ -57,7 +59,50 @@ def api_symbols():
 
 @app.get("/api/strategies")
 def api_strategies():
-    return {"daily": strategies.list_strategies(), "intraday": intraday.list_intraday()}
+    return {"daily": strategies.list_strategies(),
+            "intraday": intraday.list_intraday(),
+            "astro": astro.list_astro()}
+
+
+@app.get("/api/pro")
+def api_pro(symbol: str, period: str = "5y",
+            stop: float = 3.5, target: float = 99.0, trail: bool = False):
+    try:
+        df = data.get_history(symbol, period=period)
+    except Exception as e:
+        raise HTTPException(400, f"data error: {e}")
+    sig = pro_strategy.pro_signal(df)
+    res = pro_strategy.backtest_with_stops(
+        sig, atr_stop_mult=stop, atr_target_mult=target, trail=trail)
+    return {
+        "action": pro_strategy.latest_action(sig),
+        "metrics": res["metrics"],
+        "trades": res["trades"][-30:],
+        "equity": res["equity"],
+        "buyhold": res["buyhold"],
+    }
+
+
+@app.get("/api/astro/today")
+def api_astro_today():
+    return {"today": astro.today_snapshot(), "events": astro.upcoming_events()}
+
+
+@app.get("/api/astro")
+def api_astro(symbol: str, strategy: str, period: str = "5y"):
+    try:
+        df = data.get_history(symbol, period=period)
+    except Exception as e:
+        raise HTTPException(400, f"data error: {e}")
+    sig = astro.run_astro(strategy, df)
+    short = "(long/short)" in strategy
+    bt = backtest.run_backtest(sig, allow_short=short)
+    return {
+        "action": strategies.latest_action(sig),
+        "metrics": bt["metrics"],
+        "trades": bt["trades"][-30:],
+        "today": astro.today_snapshot(),
+    }
 
 
 @app.get("/api/signal")
